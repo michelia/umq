@@ -85,6 +85,7 @@ func (mq *MQ) newClient() mqtt.Client {
 	opts.SetClientID(mq.funcClientID()) // 每次连接的时候都更换ClientID
 	opts.SetUsername(mq.config.UserName)
 	opts.SetPassword(mq.config.Password)
+	opts.SetProtocolVersion(3)
 	if mq.config.KeepAlive != 0 {
 		opts.SetKeepAlive(time.Second * time.Duration(mq.config.KeepAlive))
 	}
