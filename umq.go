@@ -25,6 +25,7 @@ type Config struct {
 	UserName             string
 	Password             string
 	KeepAlive            int
+	DisableCleanSession  bool
 	ConnectTimeout       int // 单位ms
 	PublishTimeout       int // 单位ms
 	MaxReconnectInterval int
@@ -42,7 +43,7 @@ type MQ struct {
 	slog         ulog.Logger
 	mqc          mqtt.Client
 	mutex        sync.Mutex
-	config       Config
+	Config       Config
 	funcClientID FuncClientID
 	subs         []subscribe
 }
@@ -62,7 +63,7 @@ func New(slog ulog.Logger, config Config) *MQ {
 	}
 	mq := MQ{
 		slog:   slog,
-		config: config,
+		Config: config,
 	}
 	return &mq
 }
@@ -81,16 +82,19 @@ func (mq *MQ) AddSubscrAdd(topic string, qos int, callback MessageHandler) {
 
 func (mq *MQ) newClient() mqtt.Client {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(mq.config.BrokerAddr)
+	opts.AddBroker(mq.Config.BrokerAddr)
 	opts.SetClientID(mq.funcClientID()) // 每次连接的时候都更换ClientID
-	opts.SetUsername(mq.config.UserName)
-	opts.SetPassword(mq.config.Password)
+	opts.SetUsername(mq.Config.UserName)
+	opts.SetPassword(mq.Config.Password)
 	opts.SetProtocolVersion(3)
-	if mq.config.KeepAlive != 0 {
-		opts.SetKeepAlive(time.Second * time.Duration(mq.config.KeepAlive))
+	if mq.Config.KeepAlive != 0 {
+		opts.SetKeepAlive(time.Second * time.Duration(mq.Config.KeepAlive))
+	}
+	if mq.Config.DisableCleanSession == true {
+		opts.SetCleanSession(false) // 默认是 CleanSession 即不建队列, 不持久化信息
 	}
 	// opts.SetConnectRetry(true)
-	opts.SetConnectTimeout(time.Millisecond * time.Duration(mq.config.ConnectTimeout))
+	opts.SetConnectTimeout(time.Millisecond * time.Duration(mq.Config.ConnectTimeout))
 	// opts.SetCleanSession(false) // 默认是清除session, 重连后Subscribe都失效了, 所以要设置为false, 自带的重连不需要设置这个参数
 	fmt.Println("ClientID: " + opts.ClientID)
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
@@ -115,7 +119,7 @@ func (mq *MQ) Connect() error {
 	}
 	mq.mqc = mq.newClient()
 	token := mq.mqc.Connect()
-	if !token.WaitTimeout(time.Millisecond * time.Duration(mq.config.ConnectTimeout)) {
+	if !token.WaitTimeout(time.Millisecond * time.Duration(mq.Config.ConnectTimeout)) {
 		return ErrConnectTimeout
 	}
 	return token.Error()
@@ -126,7 +130,7 @@ func (mq *MQ) Publish(slog ulog.Logger, topic string, qos uint, retained bool, p
 	var err error
 	for i := 0; i < 3; i++ {
 		token := mq.mqc.Publish(topic, byte(qos), retained, payload)
-		if !token.WaitTimeout(time.Millisecond * time.Duration(mq.config.PublishTimeout)) {
+		if !token.WaitTimeout(time.Millisecond * time.Duration(mq.Config.PublishTimeout)) {
 			slog.Warn().Caller().Err(ErrPublishTimeout).Int("retry", i).Msg("重连后再Publish")
 			err = mq.Connect()
 			if err != nil {
