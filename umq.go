@@ -81,9 +81,10 @@ func (mq *MQ) AddSubscrAdd(topic string, qos int, callback MessageHandler) {
 }
 
 func (mq *MQ) newClient() mqtt.Client {
+	clientID := mq.funcClientID()
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(mq.Config.BrokerAddr)
-	opts.SetClientID(mq.funcClientID()) // 每次连接的时候都更换ClientID
+	opts.SetClientID(clientID) // 每次连接的时候都更换ClientID
 	opts.SetUsername(mq.Config.UserName)
 	opts.SetPassword(mq.Config.Password)
 	opts.SetProtocolVersion(3)
@@ -98,14 +99,14 @@ func (mq *MQ) newClient() mqtt.Client {
 	// opts.SetCleanSession(false) // 默认是清除session, 重连后Subscribe都失效了, 所以要设置为false, 自带的重连不需要设置这个参数
 	fmt.Println("ClientID: " + opts.ClientID)
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
-		mq.slog.Warn().Err(err).Msg("error disconnect EMQ")
+		mq.slog.Warn().Str("clientID", clientID).Err(err).Msg("error disconnect EMQ")
 	})
 	opts.SetOnConnectHandler(func(cli mqtt.Client) {
 		// 添加订阅
 		for _, v := range mq.subs {
 			cli.Subscribe(v.topic, v.qos, v.callback)
 		}
-		mq.slog.Warn().Msg("success connect EMQ and subscribe")
+		mq.slog.Warn().Str("clientID", clientID).Msg("success connect EMQ and subscribe")
 	})
 	return mqtt.NewClient(opts)
 }
