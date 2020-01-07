@@ -105,6 +105,9 @@ func New(config Config) *MQC {
 	if config.BrokerUrl == "" {
 		panic("BrokerUrl must not empty")
 	}
+	if config.ClientID == "" {
+		panic("ClientID must not empty")
+	}
 	cfg := mqc.NewConfig(config.BrokerUrl)
 	if config.KeepAlive != 0 {
 		cfg.KeepAlive = (time.Second * config.KeepAlive).String()
