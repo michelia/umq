@@ -49,7 +49,6 @@ type Config struct {
 	DisableCleanSession bool
 	PublishTimeout      time.Duration // 单位s 默认是1s
 	MaxReconnectDelay   time.Duration // 单位s 默认是10s
-	Subscribes          map[string]int
 }
 
 type Message = packet.Message
