@@ -49,10 +49,12 @@ type Config struct {
 	DisableCleanSession bool
 	PublishTimeout      time.Duration // 单位s 默认是1s
 	MaxReconnectDelay   time.Duration // 单位s 默认是10s
+	Subscribes          map[string]int
 }
 
 type Message = packet.Message
 type QOS = packet.QOS
+type Service = *mqc.Service
 
 type MessageHandler func(topic string, payload []byte)
 
@@ -82,10 +84,10 @@ func (m *MQC) Publish(msg *Message) error {
 // SetMessageCallback 在 Start 之前
 // func(msg *umq.Message) {
 // 	switch {
-// 	case umq.Match(msg.Topic, topicRespond):
-// 		go msgListen(msg.Topic, msg.Payload)
-// 	case umq.Match(msg.Topic, topicReport):
-// 		go armReportGz(msg.Topic, msg.Payload)
+// 	case umq.Match(msg.Topic, "topic_a/+"):
+// 		go msgHandleTopic1(msg.Topic, msg.Payload)
+// 	case umq.Match(msg.Topic, "topic_b/+"):
+// 		go msgHandleTopic2(msg.Topic, msg.Payload)
 // 	}
 // }
 func (m *MQC) SetMessageCallback(callback func(msg *Message)) {
@@ -100,6 +102,9 @@ New 创建操作MQ消息的对象
 config: 构建mq需要的配置
 */
 func New(config Config) *MQC {
+	if config.BrokerUrl == "" {
+		panic("BrokerUrl must not empty")
+	}
 	cfg := mqc.NewConfig(config.BrokerUrl)
 	if config.KeepAlive != 0 {
 		cfg.KeepAlive = (time.Second * config.KeepAlive).String()
